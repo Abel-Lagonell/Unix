@@ -55,6 +55,7 @@ echo "=== New Difficulty Level : $lvl ==="
 game(){
 guessNum=10
 timesec=$SECONDS
+cont='Y'
 
 cat <<EOF
     __    __   _                    _                                           
@@ -64,9 +65,9 @@ cat <<EOF
 guess a number between 1 to $((10**lvl*10))
 EOF
 
-guessNum=$(($RANDOM % (10**lvl*10)))
+guessNum=$((RANDOM % (10**lvl*10)))
 
-while [ "$cont" != "N" ] && [ $cont != "n" ] 
+while [ $cont != "N" ] && [ $cont != "n" ] 
 do
 duration=$((SECONDS - timesec))
 echo -n "your guess: "
