@@ -20,9 +20,9 @@ loadData(){
 }
 
 getData(){  
-    name=$(awk -F',' '/'$gameID'/ {print $2}' ./data/regionresults.txt | tail -n 1)
-    region=$(awk -F',' '/'$gameID'/ {print $3}' ./data/regionresults.txt | tail -n 1)
-    season=$(awk -F',' '/'$gameID'/ {print $4}' ./data/regionresults.txt | tail -n 1)
+    name=$(awk -F',' '{if($1=='$gameID') print $2}' ./data/regionresults.txt | tail -n 1)
+    region=$(awk -F',' '{if($1=='$gameID') print $3}' ./data/regionresults.txt | tail -n 1)
+    season=$(awk -F',' '{if($1=='$gameID') print $4}' ./data/regionresults.txt | tail -n 1)
 
 }
 
@@ -74,10 +74,10 @@ game(){
     cont='Y'
 
     cat <<EOF
-        __    __   _                    _                                           
-        |_)  |__)  _|   _|  \ /   |    / _   _  |                                    
-        | \  \__  (_|  (_|   |    o    \__/ (_) o                                      
-    === Current Difficulty Level : $lvl ===  
+        __    __   _                    _
+        |_)  |__)  _|   _|  \ /   |    / _   _  |
+        | \  \__  (_|  (_|   |    o    \__/ (_) o
+    === Current Difficulty Level : $lvl ===
     guess a number between 1 to $((10**lvl*10))
 EOF
 
@@ -110,8 +110,8 @@ EOF
             read cont
             guessNum=$((RANDOM % (10**lvl*10) ))
             guessCount=1
-            if [ ! $gameID -eq 0 ]; then loadData; fi
             if [ $cont = 'y' ] | [ $cont = 'Y' ]; then timesec=$SECONDS; fi;
+            if [ ! $gameID -eq 0 ]; then loadData; fi
         fi
         ((guessCount++))
     done 
@@ -163,9 +163,15 @@ nameSelect(){
 }
 
 regionSelect(){
-    echo -n "Available regions for Competition: "
+    cat <<EOF 
+    Available regions for Competition: 
+    1) SOUTH
+    2) NORTHEAST
+    3) MIDWEST
+    4) WEST
+EOF
     read -p "Please Select a region: " regionNum
-    while [[ ! regionNum =~ ^[0-4] ]]; do
+    while [[ ! $regionNum =~ ^[0-4] ]]; do
         echo "You didn't make your choice!"
         read -p "Please Select a region: " regionNum
     done
@@ -176,6 +182,8 @@ regionSelect(){
         3) region='MIDWEST' ;;
         4) region='WEST' ;;
     esac
+
+    seasonSelect
 }
 
 seasonSelect(){
@@ -197,6 +205,8 @@ EOF
         2) season='Summer' ;;
         3) season='Fall' ;;
     esac
+
+    nameSelect
 }
 
 getGameID(){
@@ -212,7 +222,7 @@ participation(){
     echo "Welcome to the national game of guessing numbers!"
     getGameID
     
-    if [[ $(grep $gameID ./data/regionresults.txt) == 0 ]]
+    if [[ $(grep $gameID ./data/regionresults.txt) -eq 0 ]]
     then regionSelect; 
     else 
         getData
@@ -239,7 +249,7 @@ EOF
 Region     Season   Level    Times Seconds  Score
 -------------------------------------------------
 EOF
-        awk -F',' '{if($1=='$gameID') printf("%-11s %-7s %-10d %-8d %-10d %.2f\n", $3, $4, $5, $6, $7, $8)}' ./data/regionresults.txt | sort -rk 6
+        awk -F',' '{if($1=='$gameID') printf("%-10s %-8s %-8d %-5d %-7d %6.2f\n", $3, $4, $5, $6, $7, $8)}' ./data/regionresults.txt | sort -rk 6
         echo "-------------------------------------------------"
     fi
 }
@@ -266,7 +276,7 @@ ID        Name             Region     Season   Level    Times Seconds  Score
 ----------------------------------------------------------------------------
 EOF
     
-    sort -t, -nrk8 ./data/regionresults.txt | awk -F',' '{if($1=='$gameID') printf("'$RED' %s %-10s  %-11s %-7s %-10d %-8d %-10d %.2f\n",$1, $2, $3, $4, $5, $6, $7, $8); else printf("'$NC' %s %-10s  %-11s %-7s %-10d %-8d %-10d %.2f\n",$1, $2, $3, $4, $5, $6, $7, $8)}';
+    sort -t, -nrk8 ./data/regionresults.txt | awk -F',' '{if($1=='$gameID') printf("'$RED'%s %-16s %-10s %-8s %-8d %-5d %-7d %6.2f\n",$1, $2, $3, $4, $5, $6, $7, $8); else printf("'$NC'%s %-16s %-10s %-8s %-8d %-5d %-7d %6.2f\n",$1, $2, $3, $4, $5, $6, $7, $8)}';
 
     echo -e "${NC}\c"
     fi
