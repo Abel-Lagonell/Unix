@@ -9,6 +9,7 @@
     guessCount=1        # Counting the number of guesses
     timesec=1           # Initial Time
     score=0             # Total Score
+    nameNum=0           # Check if name is in use
     userInput="z"       # User Input for the game
     cont="Y"            # Continue the game
     quitStatus="2"      # Quit the game (2 -No, 1 - Yes)
@@ -19,15 +20,14 @@
 
 # Loading the Data to the text file (regional results)
 loadData(){
-    printf "%d, %s, %s, %s, %d, %d, %d, %f" $gameID "$name" "$region" "$season" $lvl $guessCount $duration $score >> ./data/regionresults.txt
+    printf "%d,%s,%s,%s,%d,%d,%d,%f\n" $gameID "$name" "$region" "$season" $lvl $guessCount $duration $score >> ./data/regionresults.txt
 }
 
 # Get the Data of the text file according to the gameID
 getData(){  
-    name=$(awk -F',' '{if($1=="$gameID") print $2}' ./data/regionresults.txt | tail -n 1)
-    region=$(awk -F',' '{if($1=="$gameID") print $3}' ./data/regionresults.txt | tail -n 1)
-    season=$(awk -F',' '{if($1=="$gameID") print $4}' ./data/regionresults.txt | tail -n 1)
-
+    name=$(awk -F',' '{if($1=='$gameID') print $2}' ./data/regionresults.txt | tail -n 1)
+    region=$(awk -F',' '{if($1=='$gameID') print $3}' ./data/regionresults.txt | tail -n 1)
+    season=$(awk -F',' '{if($1=='$gameID') print $4}' ./data/regionresults.txt | tail -n 1)
 }
 
 # Splash Screen
@@ -67,10 +67,9 @@ difLevel(){
     1) EASY
     2) INTERMEDIATE
     3) HARD
-    Select a new difficulty level: 
 EOF
 
-    read -r lvl
+    read -r -p "Select a new difficulty level: " lvl
 
     echo "=== New Difficulty Level : $lvl ===" 
 }
@@ -94,8 +93,7 @@ EOF
     while [ $cont != "N" ] && [ $cont != "n" ] 
     do
         duration=$((SECONDS - timesec))
-        echo -n "your guess: "
-        read -r gameInput
+        read -r -p "your guess: " gameInput
 
         if [ $gameInput -gt $guessNum ]; then
             echo "too large"
@@ -107,12 +105,11 @@ EOF
             cat <<EOF 
             Congratulation! You get it!
             You used $duration seconds, tried $guessCount times, scored $score
-            Conitnue Practicing? Enter Y or N:
 EOF
-            read -r cont
+            read -r -p "Conitnue Practicing? Enter Y or N: " cont
             guessNum=$((RANDOM % (10**lvl*10) ))
             guessCount=1
-            if [ "$cont" = "y" ] | [ "$cont" = "Y" ]; then timesec=$SECONDS; fi;
+            if [[ "$cont" = "y" || "$cont" = "Y" ]]; then timesec=$SECONDS; fi;
             if [ ! $gameID -eq 0 ]; then loadData; fi
         fi
         ((guessCount++))
@@ -126,9 +123,8 @@ quit(){
     Are you sure to quit this game?
     1) Y
     2) N
-    Make your choice:
 EOF
-    read -r quitStatus
+    read -r -p "Make your choice: " quitStatus
     while [[ ! $quitStatus =~ ^[1-2] ]]; do
     read -r -p "Please input 1 or 2: " quitStatus
     done 
@@ -161,7 +157,7 @@ dataLoad(){
 # Gamer name
 nameSelect(){
     read -r -p "Please enter your name: " name
-    while [[ ! $name =~ ^[a-zA-Z] ]]; do
+    while [[ ( ! $name =~ ^[a-zA-Z]) || ( $name =~ \ ) || ( $name =~ [0-9] ) ]]; do
         echo "Your name can contain only letters!"
         read -r -p "Please enter your name: " name
     done 
@@ -177,7 +173,7 @@ regionSelect(){
     4) WEST
 EOF
     read -r -p "Please Select a region: " regionNum
-    while [[ ! $regionNum =~ ^[0-4] ]]; do
+    while [[ ! $regionNum =~ ^[1-4] ]]; do
         echo "You didn't make your choice!"
         read -r -p "Please Select a region: " regionNum
     done
@@ -199,12 +195,11 @@ seasonSelect(){
     1) Spring
     2) Summer
     3) Fall
-    Please select a season:
 EOF
-    read -r seasonNum
+    read -r -p "Please select a season: " seasonNum
     while [[ ! $seasonNum =~ ^[1-3] ]]; do
        echo "You didn't make a choice!"
-       read -r -p "Please select a season" seasonNum
+       read -r -p "Please select a season: " seasonNum
     done
 
     case $seasonNum in
@@ -213,7 +208,10 @@ EOF
         3) season="Fall" ;;
     esac
 
+    if [ $nameNum -eq 0 ]; then
     nameSelect
+    fi
+
 }
 
 # Gamer ID 
@@ -231,12 +229,15 @@ participation(){
     echo "Welcome to the national game of guessing numbers!"
     getGameID
     
-    if [[ $(grep "$gameID" ./data/regionresults.txt) -eq 0 ]]; then regionSelect; 
+    if [[ $(grep -c "$gameID" ./data/regionresults.txt) -eq 0 ]]; then nameNum=0; regionSelect;
     else 
         getData
         echo "Hello $name, Welcome Back!"
         var=$(grep -c "$gameID" data/regionresults.txt) 
-        echo "You have competed $var times in the regional arenas, please participate the national arena if you are qualified."        
+        echo -n "You have competed $var times in the regional arenas, "
+        if [[ $var -lt 3 ]]; then echo "You still can compete $((3 - var)) times in the regional arenas."; nameNum=1; regionSelect;
+        else echo "please participate the national arena if you are qualified."      
+        fi 
     fi
 }
 
@@ -258,7 +259,7 @@ EOF
 Region     Season   Level    Times Seconds  Score
 -------------------------------------------------
 EOF
-        awk -F',' '{if($1=="$gameID") printf("%-10s %-8s %-8d %-5d %-7d %6.2f\n", $3, $4, $5, $6, $7, $8)}' ./data/regionresults.txt | sort -rk 6
+        awk -F',' '{if($1=='$gameID') printf("%-10s %-8s %-8d %-5d %-7d %6.2f\n", $3, $4, $5, $6, $7, $8)}' ./data/regionresults.txt | sort -rk 6
         echo "-------------------------------------------------"
     fi
 }
@@ -301,7 +302,7 @@ EOF
 dataLoad
 help
 while [ "$quitStatus" != "1" ]; do
-    read -r userInput
+    read -r -p "Please Input a command: " userInput
     case $userInput in
         "h") help ;;
         "c") difLevel ;;
