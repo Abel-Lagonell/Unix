@@ -1,6 +1,17 @@
 #!/bin/bash
 
-{   # Declare variables
+# Splash Screen
+cat <<EOF
+               ████ █ █ ███ ███ ███ 
+               █ ▄▄ █ █ █▄  █▄▄ █▄▄ 
+               █▄▄█ ███ █▄▄ ▄▄█ ▄▄█
+
+            █  █ █ █ █▄ ▄█ ██▄ ███ ███
+            ██▄█ █ █ █ █ █ █▄█ █▄  █▄ 
+            █ ██ ███ █   █ █▄█ █▄▄ █ █
+EOF
+
+# Declare variables
     lvl=1               # Difficulty Level
     gameID=0            # Gamer ID
     regionNum=0         # Region Input
@@ -16,8 +27,11 @@
     name="A"            # Default name of the Gamer
     season="Spring"     # Default season
     region="SOUTH"      # Default region
-}
-
+    cont=1;             # Set if to conitnue to the next part
+    dis=1;              # Set if wanting to display certain text
+    RED="\033[0;31m"    # Red Color
+    NC="\033[0m"        # White Color
+    regionList=("SOUTH" "NORTHEAST" "MIDWEST" "WEST")
 # Loading the Data to the text file (regional results)
 loadData(){
     printf "%d,%s,%s,%s,%d,%d,%d,%f\n" $gameID "$name" "$region" "$season" $lvl $guessCount $duration $score >> ./data/regionresults.txt
@@ -30,17 +44,6 @@ getData(){
     season=$(awk -F',' '{if($1=='$gameID') print $4}' ./data/regionresults.txt | tail -n 1)
 }
 
-# Splash Screen
-cat <<EOF
-               ████ █ █ ███ ███ ███ 
-               █ ▄▄ █ █ █▄  █▄▄ █▄▄ 
-               █▄▄█ ███ █▄▄ ▄▄█ ▄▄█
-
-            █  █ █ █ █▄ ▄█ ██▄ ███ ███
-            ██▄█ █ █ █ █ █ █▄█ █▄  █▄ 
-            █ ██ ███ █   █ █▄█ █▄▄ █ █
-EOF
-
 # Default Options for Inputs
 help (){
     cat <<EOF
@@ -52,6 +55,11 @@ help (){
     p - participate competition
     s - show my score in descending order
     l - show my place in all gamers
+    r - show regional top three in descending order
+    a - check my qualification of attending national arena
+    n - show national competitors
+    P - participate national competition
+    w - print national winners
 EOF
 }
 
@@ -185,7 +193,7 @@ EOF
         4) region="WEST" ;;
     esac
 
-    seasonSelect
+    if [ $cont -eq 1 ]; then seasonSelect; else cont=1; fi
 }
 
 # Gamer Season
@@ -243,7 +251,7 @@ participation(){
 
 # Showing data of /regionresults.txt about the GamerID
 showData(){
-    getGameID
+    if [ $gameID -eq 0 ]; then getGameID; fi
     var=$(grep -c "$gameID" data/regionresults.txt) 
     if [[ var -eq 0 ]]; then
         cat <<EOF
@@ -253,7 +261,7 @@ showData(){
 EOF
     else 
         getData
-        echo "Hello $name, here are your Competitions"
+        if [ $dis -eq 1 ]; then echo "Hello $name, here are your Competitions"; else dis=1; fi
         cat <<EOF
 -------------------------------------------------
 Region     Season   Level    Times Seconds  Score
@@ -268,7 +276,7 @@ EOF
 whichPlace(){
     getGameID
     var=$(grep -c "$gameID" data/regionresults.txt) 
-    if [[ var -eq 0 ]]; then
+    if [[ $var -eq 0 ]]; then
         cat <<EOF
     You did NOT participate any regional arenas yet.
     Please participate regional arenas first.
@@ -276,10 +284,7 @@ whichPlace(){
 EOF
     else 
     getData
-    RED="\033[0;31m"
-    NC="\033[0m"
-
-    echo -e "===== ${RED} regional competition results ${NC}======"
+    echo -e "   ===== ${RED} regional competition results ${NC}======"
 
     cat <<EOF
 ----------------------------------------------------------------------------
@@ -298,6 +303,63 @@ EOF
     fi
 }
 
+#prints regional results for the region
+regionalResults(){
+    cont=0
+    if [ $dis -eq 1 ]; then regionSelect; else dis=1; fi
+    echo -e "\t\t===== ${RED} The Top 3 results of region $region ${NC}======"
+    cat <<EOF
+----------------------------------------------------------------------------
+ID        Name             Region     Season   Level    Times Seconds  Score
+----------------------------------------------------------------------------
+EOF
+    sort ./data/regionresults.txt -t ',' -rn -k 8,8 | awk -F, '!a[$1]++' |grep "\<$region\>" |  head -n 3  | awk -F',' '{
+        printf("%s %-16s %-10s %-8s %-8d %-5d %-7d '$RED'%6.2f\n'$NC'",$1, $2, $3, $4, $5, $6, $7, $8)
+    }';
+}
+
+#Check if the player is qualified for nationals
+checkQualifcation(){
+    dis=0
+    getGameID
+    getData
+    var=$(grep "$gameID" data/regionresults.txt | awk -F, '!a[$3]++' | wc -l)
+    if [ $var -gt 1 ]; then 
+        echo "Dear $name, You competed in $var regions so you are DISQUALIFIED!"
+        echo "Below are your records:"
+        showData
+    elif [ $var -eq 0 ] ; then 
+        cat <<EOF
+    You did NOT participate any regional arenas yet.
+    Please participate regional arenas first.
+                Good luck!
+EOF
+    else 
+        cat<< EOF
+    Congratulations! $name, you are qualified to attend the national arena
+        ===== '${RED}' The Top 3 results of region $region '${NC}'======"
+----------------------------------------------------------------------------
+ID        Name             Region     Season   Level    Times Seconds  Score
+----------------------------------------------------------------------------
+EOF
+    grep "\<$region\>" ./data/regionresults.txt  | sort  -t ',' -rn -k 8,8 | awk -F, '!a[$1]++' | head -n 3  | awk -F',' '{
+        if($1=='$gameID') 
+            printf("'$RED'%s %-16s %-10s %-8s %-8d %-5d %-7d %6.2f\n",$1, $2, $3, $4, $5, $6, $7, $8); 
+        else 
+            printf("'$NC'%s %-16s %-10s %-8s %-8d %-5d %-7d %6.2f\n",$1, $2, $3, $4, $5, $6, $7, $8)
+    }'; fi
+}
+
+#print all the regional results
+nationalRegionalResults(){
+    for t in "${regionList[@]}"; do
+        dis=0
+        region=$t
+        regionalResults
+        echo ""
+    done
+}
+
 # Running of the core
 dataLoad
 help
@@ -309,8 +371,13 @@ while [ "$quitStatus" != "1" ]; do
         "e") game ;;
         "q") quit ;;
         "p") participation ;;
-        "s") showData ;;
+        "s") gameID=0; showData ;;
         "l") whichPlace ;;
+        "r") regionalResults ;; 
+        "a") checkQualifcation ;;
+        "n") nationalRegionalResults;;
+        "P") ;;
+        "w") ;;
         *) echo "Please input a command shown"; help ;;
     esac
 
