@@ -27,21 +27,23 @@ EOF
     name="A"            # Default name of the Gamer
     season="Spring"     # Default season
     region="SOUTH"      # Default region
-    cont=1;             # Set if to conitnue to the next part
+    path="./data/regionresults.txt" #default path 
+    conti=1;             # Set if to conitnue to the next part
     dis=1;              # Set if wanting to display certain text
+    checktop=0          # Variable for check qualification so that playNational can check if they can play in national
     RED="\033[0;31m"    # Red Color
     NC="\033[0m"        # White Color
     regionList=("SOUTH" "NORTHEAST" "MIDWEST" "WEST")
 # Loading the Data to the text file (regional results)
 loadData(){
-    printf "%d,%s,%s,%s,%d,%d,%d,%f\n" $gameID "$name" "$region" "$season" $lvl $guessCount $duration $score >> ./data/regionresults.txt
+    printf "%d,%s,%s,%s,%d,%d,%d,%f\n" $gameID "$name" "$region" "$season" $lvl $guessCount $duration $score >> $path
 }
 
 # Get the Data of the text file according to the gameID
 getData(){  
-    name=$(awk -F',' '{if($1=='$gameID') print $2}' ./data/regionresults.txt | tail -n 1)
-    region=$(awk -F',' '{if($1=='$gameID') print $3}' ./data/regionresults.txt | tail -n 1)
-    season=$(awk -F',' '{if($1=='$gameID') print $4}' ./data/regionresults.txt | tail -n 1)
+    name=$(awk -F',' '{if($1=='$gameID') print $2}' $path | tail -n 1)
+    region=$(awk -F',' '{if($1=='$gameID') print $3}' $path | tail -n 1)
+    season=$(awk -F',' '{if($1=='$gameID') print $4}' $path | tail -n 1)
 }
 
 # Default Options for Inputs
@@ -84,7 +86,6 @@ EOF
 
 # Actual Game
 game(){
-    guessNum=10
     timesec=$SECONDS
     cont="Y"
 
@@ -193,7 +194,7 @@ EOF
         4) region="WEST" ;;
     esac
 
-    if [ $cont -eq 1 ]; then seasonSelect; else cont=1; fi
+    if [ $conti -eq 1 ]; then seasonSelect; else conti=1; fi
 }
 
 # Gamer Season
@@ -305,7 +306,7 @@ EOF
 
 #prints regional results for the region
 regionalResults(){
-    cont=0
+    conti=0
     if [ $dis -eq 1 ]; then regionSelect; else dis=1; fi
     echo -e "\t\t===== ${RED} The Top 3 results of region $region ${NC}======"
     cat <<EOF
@@ -313,7 +314,7 @@ regionalResults(){
 ID        Name             Region     Season   Level    Times Seconds  Score
 ----------------------------------------------------------------------------
 EOF
-    sort ./data/regionresults.txt -t ',' -rn -k 8,8 | awk -F, '!a[$1]++' |grep "\<$region\>" |  head -n 3  | awk -F',' '{
+    grep "\<$region\>" ./data/regionresults.txt | sort -t ',' -rn -k 8,8 | awk -F, '!a[$1]++' |  head -n 3  | awk -F',' '{
         printf("%s %-16s %-10s %-8s %-8d %-5d %-7d '$RED'%6.2f\n'$NC'",$1, $2, $3, $4, $5, $6, $7, $8)
     }';
 }
@@ -321,7 +322,7 @@ EOF
 #Check if the player is qualified for nationals
 checkQualifcation(){
     dis=0
-    getGameID
+    if [ $gameID -eq 0 ]; then getGameID; fi
     getData
     var=$(grep "$gameID" data/regionresults.txt | awk -F, '!a[$3]++' | wc -l)
     if [ $var -gt 1 ]; then 
@@ -334,20 +335,26 @@ checkQualifcation(){
     Please participate regional arenas first.
                 Good luck!
 EOF
-    else 
+    elif [[ $var -eq 1 && $conti -eq 1 ]]; then
         cat<< EOF
     Congratulations! $name, you are qualified to attend the national arena
-        ===== '${RED}' The Top 3 results of region $region '${NC}'======"
+EOF
+
+    echo -e "\t\t=====${RED} The Top 3 results of region $region ${NC}======"
+        cat<<EOF
 ----------------------------------------------------------------------------
 ID        Name             Region     Season   Level    Times Seconds  Score
 ----------------------------------------------------------------------------
 EOF
-    grep "\<$region\>" ./data/regionresults.txt  | sort  -t ',' -rn -k 8,8 | awk -F, '!a[$1]++' | head -n 3  | awk -F',' '{
+    grep "\<$region\>" ./data/regionresults.txt | sort  -t ',' -rn -k 8,8 | awk -F, '!a[$1]++' | head -n 3  | awk -F',' '{
         if($1=='$gameID') 
             printf("'$RED'%s %-16s %-10s %-8s %-8d %-5d %-7d %6.2f\n",$1, $2, $3, $4, $5, $6, $7, $8); 
         else 
             printf("'$NC'%s %-16s %-10s %-8s %-8d %-5d %-7d %6.2f\n",$1, $2, $3, $4, $5, $6, $7, $8)
-    }'; fi
+    }'; 
+    else 
+        checktop=1; conti=1
+    fi
 }
 
 #print all the regional results
@@ -358,6 +365,45 @@ nationalRegionalResults(){
         regionalResults
         echo ""
     done
+}
+
+playNational(){
+    getGameID
+    getData
+    conti=0
+    checkQualifcation
+    if [ $checktop -eq 1 ]; then
+        var=$(grep "\<$region\>" $path  | sort  -t ',' -rn -k 8,8 | awk -F, '!a[$1]++' | head -n 3 | grep -c "\<$gameID\>")
+        path="./data/nationresults.txt"
+        var2=$(grep -c "\<$gameID\>" $path)
+        if [ $var -eq 0 ]; then 
+            echo "Hello $name, you are not in the top 3 of the $region arena!"
+        elif [ $var2 -gt 0 ]; then
+            echo "Hello $name, you can play only ONCE in the national arena!"
+        else
+            echo "Hello $name, Welcome to the National arena of guessing numbers!"
+            lvl=3
+            game
+        fi
+    fi
+    path="./data/regionresults.txt"
+}
+
+winner(){
+    echo -e "***************${RED}NATIONAL WINNERS${NC}***************"
+    cat<<EOF
+Name       Region        Score Medal 
+EOF
+    sort ./data/nationresults.txt -t ',' -rn -k 8,8 | head -n 6 | awk -F',' -v red="$RED" -v white="$NC" '
+    BEGIN{
+        medals="Gold,Silver,Silver,Bronze,Bronze,Bronze"; split(medals,medal,",");
+    } 
+    {
+        if(NR % 2)
+            printf("%s%-10s %-10s %8.2f %-8s%s\n", red, $2, $3, $6, medal[NR],white );
+        else
+            printf("%-10s %-10s %8.2f %-8s\n", $2, $3, $6, medal[NR] );
+    }';
 }
 
 # Running of the core
@@ -374,10 +420,10 @@ while [ "$quitStatus" != "1" ]; do
         "s") gameID=0; showData ;;
         "l") whichPlace ;;
         "r") regionalResults ;; 
-        "a") checkQualifcation ;;
+        "a") gameID=0; checkQualifcation ;;
         "n") nationalRegionalResults;;
-        "P") ;;
-        "w") ;;
+        "P") playNational;;
+        "w") winner;;
         *) echo "Please input a command shown"; help ;;
     esac
 
