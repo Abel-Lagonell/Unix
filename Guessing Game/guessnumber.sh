@@ -34,9 +34,14 @@ EOF
     RED="\033[0;31m"    # Red Color
     NC="\033[0m"        # White Color
     regionList=("SOUTH" "NORTHEAST" "MIDWEST" "WEST")
+    nat=0               #says whether it was in national league or not
 # Loading the Data to the text file (regional results)
 loadData(){
-    printf "%d,%s,%s,%s,%d,%d,%d,%f\n" $gameID "$name" "$region" "$season" $lvl $guessCount $duration $score >> $path
+    if [ $nat -eq 0 ]; then
+        printf "%d,%s,%s,%s,%d,%d,%d,%f\n" $gameID "$name" "$region" "$season" $lvl $guessCount $duration $score >> $path
+    else 
+        printf "%d,%s,%s,%d,%d,%f\n" $gameID "$name" "$region" $guessCount $duration $score >> $path
+    fi
 }
 
 # Get the Data of the text file according to the gameID
@@ -115,11 +120,15 @@ EOF
             Congratulation! You get it!
             You used $duration seconds, tried $guessCount times, scored $score
 EOF
-            read -r -p "Conitnue Practicing? Enter Y or N: " cont
+            if [ $nat -eq 0 ]; then 
+                read -r -p "Conitnue Practicing? Enter Y or N: " cont
+            else 
+                cont="N"
+            fi
             guessNum=$((RANDOM % (10**lvl*10) ))
             guessCount=1
             if [[ "$cont" = "y" || "$cont" = "Y" ]]; then timesec=$SECONDS; fi;
-            if [ ! $gameID -eq 0 ]; then loadData; fi
+            if [ ! $gameID -eq 0 ]; then loadData; fi            
         fi
         ((guessCount++))
     done 
@@ -300,7 +309,7 @@ EOF
             printf("'$NC'%s %-16s %-10s %-8s %-8d %-5d %-7d %6.2f\n",$1, $2, $3, $4, $5, $6, $7, $8)
     }';
 
-    echo -e "${NC}\c"
+    echo -e "${NC}\c----------------------------------------------------------------------------\n\n"
     fi
 }
 
@@ -317,6 +326,7 @@ EOF
     grep "\<$region\>" ./data/regionresults.txt | sort -t ',' -rn -k 8,8 | awk -F, '!a[$1]++' |  head -n 3  | awk -F',' '{
         printf("%s %-16s %-10s %-8s %-8d %-5d %-7d '$RED'%6.2f\n'$NC'",$1, $2, $3, $4, $5, $6, $7, $8)
     }';
+    echo -e "----------------------------------------------------------------------------\n\n"
 }
 
 #Check if the player is qualified for nationals
@@ -352,6 +362,7 @@ EOF
         else 
             printf("'$NC'%s %-16s %-10s %-8s %-8d %-5d %-7d %6.2f\n",$1, $2, $3, $4, $5, $6, $7, $8)
     }'; 
+    echo -e "----------------------------------------------------------------------------\n\n"
     else 
         checktop=1; conti=1
     fi
@@ -371,6 +382,7 @@ playNational(){
     getGameID
     getData
     conti=0
+    nat=1
     checkQualifcation
     if [ $checktop -eq 1 ]; then
         var=$(grep "\<$region\>" $path  | sort  -t ',' -rn -k 8,8 | awk -F, '!a[$1]++' | head -n 3 | grep -c "\<$gameID\>")
@@ -387,6 +399,7 @@ playNational(){
         fi
     fi
     path="./data/regionresults.txt"
+    nat=0
 }
 
 winner(){
@@ -394,16 +407,15 @@ winner(){
     cat<<EOF
 Name       Region        Score Medal 
 EOF
-    sort ./data/nationresults.txt -t ',' -rn -k 8,8 | head -n 6 | awk -F',' -v red="$RED" -v white="$NC" '
-    BEGIN{
-        medals="Gold,Silver,Silver,Bronze,Bronze,Bronze"; split(medals,medal,",");
-    } 
+    sort ./data/nationresults.txt -t ',' -rn -k 6,6 | head -n 6 | awk -F',' -v red="$RED" -v white="$NC" '
+    BEGIN{medals="Gold,Silver,Silver,Bronze,Bronze,Bronze"; split(medals,medal,",");} 
     {
         if(NR % 2)
             printf("%s%-10s %-10s %8.2f %-8s%s\n", red, $2, $3, $6, medal[NR],white );
         else
             printf("%-10s %-10s %8.2f %-8s\n", $2, $3, $6, medal[NR] );
     }';
+    echo -e "**********************************************"
 }
 
 # Running of the core
